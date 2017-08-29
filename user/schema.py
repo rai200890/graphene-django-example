@@ -1,20 +1,36 @@
+from graphene import Node, ObjectType, Schema, Interface
 from graphene_django import DjangoObjectType
-import graphene
+from graphene_django.filter import DjangoFilterConnectionField
 
-from user.models import User as UserModel
+from user.models import User
 
 
-class User(DjangoObjectType):
+class NodeInterface(Interface):
+
+    @classmethod
+    def get_node(cls, info, id):
+        node = cls._meta.model.objects.get(id)
+        return node
+
+
+class UserType(DjangoObjectType, NodeInterface):
+
     class Meta:
-        model = UserModel
+        model = User
+        interfaces = (Node, )
+        filter_fields = {
+            "name": ["exact", "icontains", "istartswith"],
+            "email": ["exact"]
+        }
 
 
-class Query(graphene.ObjectType):
-    users = graphene.List(User)
-
-    @graphene.resolve_only_args
-    def resolve_users(self):
-        return UserModel.objects.all()
+class UserQuery(ObjectType):
+    user = Node.Field(UserType)
+    users = DjangoFilterConnectionField(UserType)
 
 
-schema = graphene.Schema(query=Query)
+class Query(UserQuery):
+    pass
+
+
+schema = Schema(query=Query)
